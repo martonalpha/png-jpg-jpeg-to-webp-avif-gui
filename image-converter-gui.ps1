@@ -14,31 +14,55 @@ function Add-Log {
 
 # ---------- main form ----------
 $form               = New-Object System.Windows.Forms.Form
-$form.Text          = "Image Converter (PNG/JPG/AVIF -> WebP / AVIF)"
+$form.Text          = "PNG/JPG/AVIF -> WebP / AVIF Converter"
 $form.StartPosition = "CenterScreen"
-$form.Size          = New-Object System.Drawing.Size(700, 520)
+$form.Size          = New-Object System.Drawing.Size(780, 580)
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox   = $false
+$form.AllowDrop     = $true
+$form.Font          = New-Object System.Drawing.Font("Segoe UI", 9)
+
+# ---------- title ----------
+$labelTitle                  = New-Object System.Windows.Forms.Label
+$labelTitle.Text             = "Image Converter for Web (PNG/JPG/AVIF -> WebP / AVIF)"
+$labelTitle.Location         = New-Object System.Drawing.Point(15, 10)
+$labelTitle.AutoSize         = $true
+$labelTitle.Font             = New-Object System.Drawing.Font("Segoe UI Semibold", 11)
+$form.Controls.Add($labelTitle)
+
+$labelSubtitle               = New-Object System.Windows.Forms.Label
+$labelSubtitle.Text          = "Select a folder with images, set quality and output format, then click Start."
+$labelSubtitle.Location      = New-Object System.Drawing.Point(15, 35)
+$labelSubtitle.AutoSize      = $true
+$labelSubtitle.ForeColor     = [System.Drawing.Color]::Gray
+$form.Controls.Add($labelSubtitle)
 
 # ---------- folder selection ----------
-$labelFolder        = New-Object System.Windows.Forms.Label
-$labelFolder.Text   = "Folder:"
-$labelFolder.Location = New-Object System.Drawing.Point(15, 20)
-$labelFolder.AutoSize = $true
-$form.Controls.Add($labelFolder)
+$groupFolder                 = New-Object System.Windows.Forms.GroupBox
+$groupFolder.Text            = " Source folder "
+$groupFolder.Location        = New-Object System.Drawing.Point(15, 65)
+$groupFolder.Size            = New-Object System.Drawing.Size(740, 80)
+$form.Controls.Add($groupFolder)
 
-$textFolder         = New-Object System.Windows.Forms.TextBox
-$textFolder.Location = New-Object System.Drawing.Point(80, 15)
-$textFolder.Size    = New-Object System.Drawing.Size(480, 25)
-$form.Controls.Add($textFolder)
+$labelFolder                 = New-Object System.Windows.Forms.Label
+$labelFolder.Text            = "Folder:"
+$labelFolder.Location        = New-Object System.Drawing.Point(10, 30)
+$labelFolder.AutoSize        = $true
+$groupFolder.Controls.Add($labelFolder)
 
-$buttonBrowse       = New-Object System.Windows.Forms.Button
-$buttonBrowse.Text  = "Browse..."
-$buttonBrowse.Location = New-Object System.Drawing.Point(570, 13)
-$buttonBrowse.Size  = New-Object System.Drawing.Size(90, 28)
-$form.Controls.Add($buttonBrowse)
+$textFolder                  = New-Object System.Windows.Forms.TextBox
+$textFolder.Location         = New-Object System.Drawing.Point(70, 27)
+$textFolder.Size             = New-Object System.Drawing.Size(540, 24)
+$textFolder.AllowDrop        = $true
+$groupFolder.Controls.Add($textFolder)
 
-$folderDialog       = New-Object System.Windows.Forms.FolderBrowserDialog
+$buttonBrowse                = New-Object System.Windows.Forms.Button
+$buttonBrowse.Text           = "Browse..."
+$buttonBrowse.Location       = New-Object System.Drawing.Point(620, 25)
+$buttonBrowse.Size           = New-Object System.Drawing.Size(90, 28)
+$groupFolder.Controls.Add($buttonBrowse)
+
+$folderDialog                = New-Object System.Windows.Forms.FolderBrowserDialog
 
 $buttonBrowse.Add_Click({
     if ($folderDialog.ShowDialog() -eq "OK") {
@@ -46,68 +70,115 @@ $buttonBrowse.Add_Click({
     }
 })
 
-# ---------- quality ----------
-$labelQuality          = New-Object System.Windows.Forms.Label
-$labelQuality.Text     = "Quality (0-100):"
-$labelQuality.Location = New-Object System.Drawing.Point(15, 55)
-$labelQuality.AutoSize = $true
-$form.Controls.Add($labelQuality)
+# Drag & Drop to folder textbox
+$textFolder.Add_DragEnter({
+    if ($_.Data.GetDataPresent([Windows.Forms.DataFormats]::FileDrop)) {
+        $_.Effect = 'Copy'
+    } else {
+        $_.Effect = 'None'
+    }
+})
 
-$textQuality           = New-Object System.Windows.Forms.TextBox
-$textQuality.Location  = New-Object System.Drawing.Point(120, 52)
-$textQuality.Size      = New-Object System.Drawing.Size(50, 25)
-$textQuality.Text      = "85"
-$form.Controls.Add($textQuality)
+$textFolder.Add_DragDrop({
+    $paths = $_.Data.GetData([Windows.Forms.DataFormats]::FileDrop)
+    if ($paths -and $paths.Length -gt 0) {
+        $first = $paths[0]
+        if (Test-Path $first -PathType Container) {
+            $textFolder.Text = $first
+        } else {
+            $textFolder.Text = [System.IO.Path]::GetDirectoryName($first)
+        }
+    }
+})
 
-# ---------- output format ----------
-$labelFormat           = New-Object System.Windows.Forms.Label
-$labelFormat.Text      = "Output format:"
-$labelFormat.Location  = New-Object System.Drawing.Point(200, 55)
-$labelFormat.AutoSize  = $true
-$form.Controls.Add($labelFormat)
+# ---------- settings ----------
+$groupSettings               = New-Object System.Windows.Forms.GroupBox
+$groupSettings.Text          = " Settings "
+$groupSettings.Location      = New-Object System.Drawing.Point(15, 155)
+$groupSettings.Size          = New-Object System.Drawing.Size(740, 110)
+$form.Controls.Add($groupSettings)
 
-$comboFormat           = New-Object System.Windows.Forms.ComboBox
-$comboFormat.Location  = New-Object System.Drawing.Point(290, 52)
-$comboFormat.Size      = New-Object System.Drawing.Size(80, 25)
-$comboFormat.DropDownStyle = 'DropDownList'
+# Quality
+$labelQuality                = New-Object System.Windows.Forms.Label
+$labelQuality.Text           = "Quality (0-100):"
+$labelQuality.Location       = New-Object System.Drawing.Point(10, 30)
+$labelQuality.AutoSize       = $true
+$groupSettings.Controls.Add($labelQuality)
+
+$textQuality                 = New-Object System.Windows.Forms.TextBox
+$textQuality.Location        = New-Object System.Drawing.Point(120, 27)
+$textQuality.Size            = New-Object System.Drawing.Size(50, 24)
+$textQuality.Text            = "85"
+$groupSettings.Controls.Add($textQuality)
+
+$labelQualityHint            = New-Object System.Windows.Forms.Label
+$labelQualityHint.Text       = "(85 is a good default for web)"
+$labelQualityHint.Location   = New-Object System.Drawing.Point(180, 30)
+$labelQualityHint.AutoSize   = $true
+$labelQualityHint.ForeColor  = [System.Drawing.Color]::Gray
+$groupSettings.Controls.Add($labelQualityHint)
+
+# Output format
+$labelFormat                 = New-Object System.Windows.Forms.Label
+$labelFormat.Text            = "Output format:"
+$labelFormat.Location        = New-Object System.Drawing.Point(10, 65)
+$labelFormat.AutoSize        = $true
+$groupSettings.Controls.Add($labelFormat)
+
+$comboFormat                 = New-Object System.Windows.Forms.ComboBox
+$comboFormat.Location        = New-Object System.Drawing.Point(120, 62)
+$comboFormat.Size            = New-Object System.Drawing.Size(100, 24)
+$comboFormat.DropDownStyle   = 'DropDownList'
 [void]$comboFormat.Items.Add("webp")
 [void]$comboFormat.Items.Add("avif")
-$comboFormat.SelectedIndex = 0
-$form.Controls.Add($comboFormat)
+$comboFormat.SelectedIndex   = 0
+$groupSettings.Controls.Add($comboFormat)
 
-# ---------- checkboxes ----------
-$checkDelete           = New-Object System.Windows.Forms.CheckBox
-$checkDelete.Text      = "Delete original source files after conversion"
-$checkDelete.Location  = New-Object System.Drawing.Point(15, 85)
-$checkDelete.AutoSize  = $true
-$checkDelete.Checked   = $true
-$form.Controls.Add($checkDelete)
+# ---------- options ----------
+$groupOptions                = New-Object System.Windows.Forms.GroupBox
+$groupOptions.Text           = " Options "
+$groupOptions.Location       = New-Object System.Drawing.Point(15, 275)
+$groupOptions.Size           = New-Object System.Drawing.Size(740, 90)
+$form.Controls.Add($groupOptions)
 
-$checkRecursive        = New-Object System.Windows.Forms.CheckBox
-$checkRecursive.Text   = "Include subfolders (recursive)"
-$checkRecursive.Location = New-Object System.Drawing.Point(15, 110)
-$checkRecursive.AutoSize = $true
-$checkRecursive.Checked  = $false
-$form.Controls.Add($checkRecursive)
+$checkDelete                 = New-Object System.Windows.Forms.CheckBox
+$checkDelete.Text            = "Delete original source files after successful conversion"
+$checkDelete.Location        = New-Object System.Drawing.Point(10, 25)
+$checkDelete.AutoSize        = $true
+$checkDelete.Checked         = $true
+$groupOptions.Controls.Add($checkDelete)
+
+$checkRecursive              = New-Object System.Windows.Forms.CheckBox
+$checkRecursive.Text         = "Include subfolders (recursive)"
+$checkRecursive.Location     = New-Object System.Drawing.Point(10, 50)
+$checkRecursive.AutoSize     = $true
+$groupOptions.Controls.Add($checkRecursive)
 
 # ---------- start button ----------
-$buttonStart           = New-Object System.Windows.Forms.Button
-$buttonStart.Text      = "Start conversion"
-$buttonStart.Location  = New-Object System.Drawing.Point(15, 140)
-$buttonStart.Size      = New-Object System.Drawing.Size(150, 35)
+$buttonStart                 = New-Object System.Windows.Forms.Button
+$buttonStart.Text            = "Start conversion"
+$buttonStart.Location        = New-Object System.Drawing.Point(15, 380)
+$buttonStart.Size            = New-Object System.Drawing.Size(160, 36)
+$buttonStart.Font            = New-Object System.Drawing.Font("Segoe UI Semibold", 9)
 $form.Controls.Add($buttonStart)
 
-# ---------- log textbox ----------
-$logBox                = New-Object System.Windows.Forms.TextBox
-$logBox.Location       = New-Object System.Drawing.Point(15, 190)
-$logBox.Size           = New-Object System.Drawing.Size(645, 270)
-$logBox.Multiline      = $true
-$logBox.ScrollBars     = "Vertical"
-$logBox.ReadOnly       = $true
-$logBox.Font           = New-Object System.Drawing.Font("Consolas", 9)
+# ---------- log output ----------
+$labelLog                    = New-Object System.Windows.Forms.Label
+$labelLog.Text               = "Log output:"
+$labelLog.Location           = New-Object System.Drawing.Point(15, 425)
+$labelLog.AutoSize           = $true
+$form.Controls.Add($labelLog)
+
+$logBox                      = New-Object System.Windows.Forms.TextBox
+$logBox.Location             = New-Object System.Drawing.Point(15, 445)
+$logBox.Size                 = New-Object System.Drawing.Size(740, 90)
+$logBox.Multiline            = $true
+$logBox.ScrollBars           = "Vertical"
+$logBox.ReadOnly             = $true
+$logBox.Font                 = New-Object System.Drawing.Font("Consolas", 9)
 $form.Controls.Add($logBox)
 
-# ---------- start button logic ----------
+# ---------- start logic ----------
 $buttonStart.Add_Click({
     $folder = $textFolder.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($folder) -or -not (Test-Path $folder)) {
@@ -119,7 +190,7 @@ $buttonStart.Add_Click({
     $magickCmd = Get-Command magick -ErrorAction SilentlyContinue
     if (-not $magickCmd) {
         [System.Windows.Forms.MessageBox]::Show(
-            "ImageMagick 'magick' command not found in PATH.`r`nPlease install ImageMagick.",
+            "ImageMagick 'magick' command not found.`r`nPlease install ImageMagick.",
             "ImageMagick not found",
             "OK",
             "Error"
@@ -127,33 +198,31 @@ $buttonStart.Add_Click({
         return
     }
 
-    # -------- FIXED QUALITY VALIDATION --------
+    # Quality validation
     $qualityText = $textQuality.Text.Trim()
-
     [int]$quality = 0
+
     if (-not [int]::TryParse($qualityText, [ref]$quality)) {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Quality must be an integer between 0 and 100.",
-            "Error","OK","Error"
-        )
+        [System.Windows.Forms.MessageBox]::Show("Quality must be an integer between 0 and 100.","Error","OK","Error")
         return
     }
 
     if ($quality -lt 0 -or $quality -gt 100) {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Quality must be between 0 and 100.",
-            "Error","OK","Error"
-        )
+        [System.Windows.Forms.MessageBox]::Show("Quality must be between 0 and 100.","Error","OK","Error")
         return
     }
-    # ------------------------------------------
 
     $format = $comboFormat.SelectedItem
     $deleteOriginals = $checkDelete.Checked
     $recursive       = $checkRecursive.Checked
 
     $logBox.Clear()
-    Add-Log "Starting conversion to $format ..." $logBox
+    Add-Log "Starting conversion..." $logBox
+    Add-Log "Folder: $folder" $logBox
+    Add-Log "Format: $format" $logBox
+    Add-Log "Quality: $quality" $logBox
+    Add-Log "Recursive: $recursive" $logBox
+    Add-Log "Delete originals: $deleteOriginals" $logBox
     Add-Log "" $logBox
 
     $buttonStart.Enabled = $false
@@ -161,11 +230,11 @@ $buttonStart.Add_Click({
     try {
         if ($recursive) {
             $files = Get-ChildItem -Path $folder -File -Recurse | Where-Object {
-                $_.Extension -in '.jpg', '.jpeg', '.png', '.avif', '.JPG', '.JPEG', '.PNG', '.AVIF'
+                $_.Extension -in '.jpg','.jpeg','.png','.avif','.JPG','.JPEG','.PNG','.AVIF'
             }
         } else {
             $files = Get-ChildItem -Path $folder -File | Where-Object {
-                $_.Extension -in '.jpg', '.jpeg', '.png', '.avif', '.JPG', '.JPEG', '.PNG', '.AVIF'
+                $_.Extension -in '.jpg','.jpeg','.png','.avif','.JPG','.JPEG','.PNG','.AVIF'
             }
         }
 
@@ -173,41 +242,30 @@ $buttonStart.Add_Click({
         $success = 0
         $fail    = 0
 
-        if ($total -eq 0) {
-            Add-Log "No PNG/JPG/JPEG/AVIF files found." $logBox
-        } else {
-            Add-Log "Found $total file(s)." $logBox
-            Add-Log "" $logBox
+        foreach ($file in $files) {
+            $outPath = [System.IO.Path]::ChangeExtension($file.FullName, ".$format")
 
-            foreach ($file in $files) {
+            Add-Log "Converting: $($file.Name)" $logBox
 
-                $outPath = [System.IO.Path]::ChangeExtension($file.FullName, ".$format")
+            & magick $file.FullName -auto-orient -quality $quality $outPath
 
-                Add-Log "Converting: $($file.FullName)" $logBox
-                Add-Log "       -->  $outPath" $logBox
-
-                & magick $file.FullName -auto-orient -quality $quality $outPath
-
-                if (Test-Path $outPath) {
-                    if ($deleteOriginals) {
-                        Remove-Item $file.FullName -ErrorAction SilentlyContinue
-                    }
-                    $success++
-                    Add-Log "  OK" $logBox
-                } else {
-                    $fail++
-                    Add-Log "  ERROR: output not created." $logBox
+            if (Test-Path $outPath) {
+                if ($deleteOriginals) {
+                    Remove-Item $file.FullName -ErrorAction SilentlyContinue
                 }
-
-                Add-Log "" $logBox
+                $success++
+                Add-Log "  OK" $logBox
+            } else {
+                $fail++
+                Add-Log "  ERROR" $logBox
             }
-
-            Add-Log "-----------------------------" $logBox
-            Add-Log "Done." $logBox
-            Add-Log "Total:    $total" $logBox
-            Add-Log "Success:  $success" $logBox
-            Add-Log "Failed:   $fail" $logBox
         }
+
+        Add-Log "" $logBox
+        Add-Log "Done." $logBox
+        Add-Log "Total: $total" $logBox
+        Add-Log "Success: $success" $logBox
+        Add-Log "Failed: $fail" $logBox
     }
     finally {
         $buttonStart.Enabled = $true
