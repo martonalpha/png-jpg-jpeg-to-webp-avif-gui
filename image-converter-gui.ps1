@@ -1,7 +1,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Function to append log messages to the log textbox
+# ---------- helper: log to textbox ----------
 function Add-Log {
     param(
         [string]$Message,
@@ -12,7 +12,7 @@ function Add-Log {
     $LogBox.ScrollToCaret()
 }
 
-# Create the main form
+# ---------- main form ----------
 $form               = New-Object System.Windows.Forms.Form
 $form.Text          = "Image Converter (PNG/JPG/AVIF -> WebP / AVIF)"
 $form.StartPosition = "CenterScreen"
@@ -20,7 +20,7 @@ $form.Size          = New-Object System.Drawing.Size(700, 520)
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox   = $false
 
-# Folder selection controls
+# ---------- folder selection ----------
 $labelFolder        = New-Object System.Windows.Forms.Label
 $labelFolder.Text   = "Folder:"
 $labelFolder.Location = New-Object System.Drawing.Point(15, 20)
@@ -46,7 +46,7 @@ $buttonBrowse.Add_Click({
     }
 })
 
-# Quality input controls
+# ---------- quality ----------
 $labelQuality          = New-Object System.Windows.Forms.Label
 $labelQuality.Text     = "Quality (0-100):"
 $labelQuality.Location = New-Object System.Drawing.Point(15, 55)
@@ -59,7 +59,7 @@ $textQuality.Size      = New-Object System.Drawing.Size(50, 25)
 $textQuality.Text      = "85"
 $form.Controls.Add($textQuality)
 
-# Output format controls
+# ---------- output format ----------
 $labelFormat           = New-Object System.Windows.Forms.Label
 $labelFormat.Text      = "Output format:"
 $labelFormat.Location  = New-Object System.Drawing.Point(200, 55)
@@ -72,10 +72,10 @@ $comboFormat.Size      = New-Object System.Drawing.Size(80, 25)
 $comboFormat.DropDownStyle = 'DropDownList'
 [void]$comboFormat.Items.Add("webp")
 [void]$comboFormat.Items.Add("avif")
-$comboFormat.SelectedIndex = 0   # default: webp
+$comboFormat.SelectedIndex = 0
 $form.Controls.Add($comboFormat)
 
-# Checkbox: delete originals
+# ---------- checkboxes ----------
 $checkDelete           = New-Object System.Windows.Forms.CheckBox
 $checkDelete.Text      = "Delete original source files after conversion"
 $checkDelete.Location  = New-Object System.Drawing.Point(15, 85)
@@ -83,7 +83,6 @@ $checkDelete.AutoSize  = $true
 $checkDelete.Checked   = $true
 $form.Controls.Add($checkDelete)
 
-# Checkbox: recursive processing
 $checkRecursive        = New-Object System.Windows.Forms.CheckBox
 $checkRecursive.Text   = "Include subfolders (recursive)"
 $checkRecursive.Location = New-Object System.Drawing.Point(15, 110)
@@ -91,14 +90,14 @@ $checkRecursive.AutoSize = $true
 $checkRecursive.Checked  = $false
 $form.Controls.Add($checkRecursive)
 
-# Start conversion button
+# ---------- start button ----------
 $buttonStart           = New-Object System.Windows.Forms.Button
 $buttonStart.Text      = "Start conversion"
 $buttonStart.Location  = New-Object System.Drawing.Point(15, 140)
 $buttonStart.Size      = New-Object System.Drawing.Size(150, 35)
 $form.Controls.Add($buttonStart)
 
-# Log output textbox
+# ---------- log textbox ----------
 $logBox                = New-Object System.Windows.Forms.TextBox
 $logBox.Location       = New-Object System.Drawing.Point(15, 190)
 $logBox.Size           = New-Object System.Drawing.Size(645, 270)
@@ -108,7 +107,7 @@ $logBox.ReadOnly       = $true
 $logBox.Font           = New-Object System.Drawing.Font("Consolas", 9)
 $form.Controls.Add($logBox)
 
-# Click handler for start button
+# ---------- start button logic ----------
 $buttonStart.Add_Click({
     $folder = $textFolder.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($folder) -or -not (Test-Path $folder)) {
@@ -116,11 +115,11 @@ $buttonStart.Add_Click({
         return
     }
 
-    # Check ImageMagick availability
+    # Check ImageMagick
     $magickCmd = Get-Command magick -ErrorAction SilentlyContinue
     if (-not $magickCmd) {
         [System.Windows.Forms.MessageBox]::Show(
-            "ImageMagick 'magick' command not found in PATH.`r`nPlease install ImageMagick and make sure 'magick' is available.",
+            "ImageMagick 'magick' command not found in PATH.`r`nPlease install ImageMagick.",
             "ImageMagick not found",
             "OK",
             "Error"
@@ -128,48 +127,45 @@ $buttonStart.Add_Click({
         return
     }
 
-    # Parse quality
+    # -------- FIXED QUALITY VALIDATION --------
     $qualityText = $textQuality.Text.Trim()
-    if (-not [int]::TryParse($qualityText, [ref]([int]$quality))) {
-        [System.Windows.Forms.MessageBox]::Show("Quality must be an integer between 0 and 100.","Error","OK","Error")
+
+    [int]$quality = 0
+    if (-not [int]::TryParse($qualityText, [ref]$quality)) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Quality must be an integer between 0 and 100.",
+            "Error","OK","Error"
+        )
         return
     }
+
     if ($quality -lt 0 -or $quality -gt 100) {
-        [System.Windows.Forms.MessageBox]::Show("Quality must be between 0 and 100.","Error","OK","Error")
+        [System.Windows.Forms.MessageBox]::Show(
+            "Quality must be between 0 and 100.",
+            "Error","OK","Error"
+        )
         return
     }
+    # ------------------------------------------
 
-    # Output format selection
     $format = $comboFormat.SelectedItem
-    if ([string]::IsNullOrWhiteSpace($format)) {
-        [System.Windows.Forms.MessageBox]::Show("Please select an output format.","Error","OK","Error")
-        return
-    }
-
     $deleteOriginals = $checkDelete.Checked
     $recursive       = $checkRecursive.Checked
 
-    # Reset log
     $logBox.Clear()
-    Add-Log "Starting PNG/JPG/AVIF -> $format conversion..." $logBox
-    Add-Log "Folder:   $folder" $logBox
-    Add-Log "Quality:  $quality" $logBox
-    Add-Log "Format:   $format" $logBox
-    Add-Log "Delete originals: $deleteOriginals" $logBox
-    Add-Log "Recursive: $recursive" $logBox
+    Add-Log "Starting conversion to $format ..." $logBox
     Add-Log "" $logBox
 
     $buttonStart.Enabled = $false
 
     try {
-        # Gather files based on recursive flag
         if ($recursive) {
             $files = Get-ChildItem -Path $folder -File -Recurse | Where-Object {
-                $_.Extension -in '.jpg', '.jpeg', '.JPG', '.JPEG', '.png', '.PNG', '.avif', '.AVIF'
+                $_.Extension -in '.jpg', '.jpeg', '.png', '.avif', '.JPG', '.JPEG', '.PNG', '.AVIF'
             }
         } else {
             $files = Get-ChildItem -Path $folder -File | Where-Object {
-                $_.Extension -in '.jpg', '.jpeg', '.JPG', '.JPEG', '.png', '.PNG', '.avif', '.AVIF'
+                $_.Extension -in '.jpg', '.jpeg', '.png', '.avif', '.JPG', '.JPEG', '.PNG', '.AVIF'
             }
         }
 
@@ -178,21 +174,20 @@ $buttonStart.Add_Click({
         $fail    = 0
 
         if ($total -eq 0) {
-            Add-Log "No PNG/JPG/JPEG/AVIF files found in the selected folder." $logBox
+            Add-Log "No PNG/JPG/JPEG/AVIF files found." $logBox
         } else {
             Add-Log "Found $total file(s)." $logBox
             Add-Log "" $logBox
 
             foreach ($file in $files) {
-                # Determine output file path
+
                 $outPath = [System.IO.Path]::ChangeExtension($file.FullName, ".$format")
+
                 Add-Log "Converting: $($file.FullName)" $logBox
                 Add-Log "       -->  $outPath" $logBox
 
-                # Perform conversion using ImageMagick
                 & magick $file.FullName -auto-orient -quality $quality $outPath
 
-                # Check for success and handle deletion of original
                 if (Test-Path $outPath) {
                     if ($deleteOriginals) {
                         Remove-Item $file.FullName -ErrorAction SilentlyContinue
@@ -205,7 +200,6 @@ $buttonStart.Add_Click({
                 }
 
                 Add-Log "" $logBox
-                $form.Refresh()
             }
 
             Add-Log "-----------------------------" $logBox
